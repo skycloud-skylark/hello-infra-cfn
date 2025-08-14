@@ -1,0 +1,191 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Minimal VPC + EKS + Managed Nodegroup + ECR + SSM outputs for Hello World demo
+
+Parameters:
+  ClusterName:
+    Type: String
+    Default: hello-eks
+  NodeInstanceType:
+    Type: String
+    Default: t3.small
+  DesiredSize:
+    Type: Number
+    Default: 2
+  MinSize:
+    Type: Number
+    Default: 1
+  MaxSize:
+    Type: Number
+    Default: 3
+  DemoPrefix:
+    Type: String
+    Default: /hello/dev # SSM prefix for outputs
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ClusterName}-vpc"
+
+  IGW:
+    Type: AWS::EC2::InternetGateway
+
+  IgwAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref IGW
+      VpcId: !Ref VPC
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.0/20
+      AvailabilityZone: !Sub "${AWS::Region}a"
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ClusterName}-public-a"
+
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.16.0/20
+      AvailabilityZone: !Sub "${AWS::Region}b"
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ClusterName}-public-b"
+
+  PublicRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRT
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+
+  RTAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRT
+
+  RTAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRT
+
+  ClusterSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EKS control plane SG
+      VpcId: !Ref VPC
+
+  EksClusterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: eks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+        - arn:aws:iam::aws:policy/AmazonEKSVPCResourceController
+
+  NodegroupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+
+  EksCluster:
+    Type: AWS::EKS::Cluster
+    Properties:
+      Name: !Ref ClusterName
+      RoleArn: !GetAtt EksClusterRole.Arn
+      Version: "1.29"
+      ResourcesVpcConfig:
+        SubnetIds:
+          - !Ref PublicSubnetA
+          - !Ref PublicSubnetB
+        SecurityGroupIds:
+          - !Ref ClusterSG
+        EndpointPublicAccess: true
+
+  NodeGroup:
+    Type: AWS::EKS::Nodegroup
+    DependsOn: EksCluster
+    Properties:
+      ClusterName: !Ref ClusterName
+      NodeRole: !GetAtt NodegroupRole.Arn
+      ScalingConfig:
+        DesiredSize: !Ref DesiredSize
+        MinSize: !Ref MinSize
+        MaxSize: !Ref MaxSize
+      Subnets:
+        - !Ref PublicSubnetA
+        - !Ref PublicSubnetB
+      InstanceTypes:
+        - !Ref NodeInstanceType
+      AmiType: AL2_x86_64
+      CapacityType: ON_DEMAND
+
+  HelloEcr:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: hello-world
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
+  PClusterName:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "${DemoPrefix}/clusterName"
+      Type: String
+      Value: !Ref ClusterName
+
+  PRegion:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "${DemoPrefix}/region"
+      Type: String
+      Value: !Ref AWS::Region
+
+  PEcrUri:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "${DemoPrefix}/ecrRepoUri"
+      Type: String
+      Value: !GetAtt HelloEcr.RepositoryUri
+
+Outputs:
+  ClusterNameOut:
+    Value: !Ref ClusterName
+  EcrRepoUriOut:
+    Value: !GetAtt HelloEcr.RepositoryUri
+  SsmPrefix:
+    Value: !Ref DemoPrefix
