@@ -5,8 +5,9 @@ phases:
       python: 3.9
     commands:
       - python3 -m pip install --upgrade pip
-      - python3 -m pip install cfn-lint
-
+      - python3 -m pip install --user cfn-lint
+      - export PATH="$PATH:/root/.local/bin"
+      - cfn-lint --version
   pre_build:
     commands:
       - echo "PWD=$(pwd)"
@@ -15,11 +16,9 @@ phases:
       - echo "== cfn dir =="
       - ls -la cfn || true
       - '[ -f cfn/hello-eks.yml ] || { echo "ERROR: cfn/hello-eks.yml not found"; exit 2; }'
-
   build:
     commands:
       - cfn-lint -t cfn/hello-eks.yml
-
 artifacts:
   files:
     - cfn/hello-eks.yml
