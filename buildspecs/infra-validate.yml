@@ -5,10 +5,22 @@ phases:
     runtime-versions:
       python: 3.9
     commands:
-      - pip install cfn-lint
+      - python3 -m pip install --upgrade pip
+      - python3 -m pip install cfn-lint
+  pre_build:
+    commands:
+      - echo "PWD=$(pwd)"
+      - echo "Listing repo contents:"
+      - ls -la
+      - echo "Listing cfn/ contents:"
+      - ls -la cfn || true
+      - test -e cfn/hello-eks.yaml || (echo "ERROR: cfn/hello-eks.yaml not found" && exit 2)
   build:
     commands:
-      - cfn-lint cfn/hello-eks.yaml
+      # Lint the specific template (and you can keep the glob to lint all files too)
+      - cfn-lint -t cfn/hello-eks.yaml
+      # Or lint all YAML templates in cfn/ (uncomment if you want)
+      # - cfn-lint -t "cfn/*.yaml"
 
 artifacts:
   files:
