@@ -5,20 +5,18 @@ phases:
       python: 3.9
     commands:
       - python3 -m pip install --upgrade pip
-      - python3 -m pip install cfn-lint
-      # Optional: show version in a portable way
-      - python3 -m pip show cfn-lint | awk '/Version/{print $0}'
+      - python3 -m pip install --user cfn-lint
+      - export PATH="$PATH:/root/.local/bin"
+      - cfn-lint --version               # shows cfn-lint 1.38.3 in your log
   pre_build:
     commands:
       - echo "PWD=$(pwd)"
-      - echo "== repo root =="
-      - ls -la
-      - echo "== cfn dir =="
-      - ls -la cfn || true
+      - echo "== repo root =="; ls -la
+      - echo "== cfn dir =="; ls -la cfn || true
       - '[ -f cfn/hello-eks.yml ] || { echo "ERROR: cfn/hello-eks.yml not found"; exit 2; }'
   build:
     commands:
-      - python3 -m cfnlint -t cfn/hello-eks.yml
+      - cfn-lint -t cfn/hello-eks.yml
 artifacts:
   files:
     - cfn/hello-eks.yml
