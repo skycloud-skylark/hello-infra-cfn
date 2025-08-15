@@ -6,15 +6,20 @@ phases:
     commands:
       - python3 -m pip install --upgrade pip
       - python3 -m pip install cfn-lint
+
   pre_build:
     commands:
-      - 'echo PWD=$(pwd)'
-      - 'echo "== repo root =="'; ls -la
-      - 'echo "== cfn dir =="'; ls -la cfn || true
+      - echo "PWD=$(pwd)"
+      - echo "== repo root =="
+      - ls -la
+      - echo "== cfn dir =="
+      - ls -la cfn || true
       - '[ -f cfn/hello-eks.yml ] || { echo "ERROR: cfn/hello-eks.yml not found"; exit 2; }'
+
   build:
     commands:
-      - 'cfn-lint -t cfn/hello-eks.yml'
+      - cfn-lint -t cfn/hello-eks.yml
+
 artifacts:
   files:
     - cfn/hello-eks.yml
