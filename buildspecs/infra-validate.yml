@@ -10,10 +10,8 @@ phases:
   pre_build:
     commands:
       - echo "PWD=$(pwd)"
-      - echo "== repo root =="
-      - ls -la
-      - echo "== cfn dir =="
-      - ls -la cfn || true
+      - echo "== repo root =="; ls -la
+      - echo "== cfn dir =="; ls -la cfn || true
       - '[ -f cfn/hello-eks.yml ] || { echo "ERROR: cfn/hello-eks.yml not found"; exit 2; }'
   build:
     commands:
