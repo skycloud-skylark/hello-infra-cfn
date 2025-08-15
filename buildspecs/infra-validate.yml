@@ -1,5 +1,4 @@
 version: 0.2
-
 phases:
   install:
     runtime-versions:
@@ -17,11 +16,7 @@ phases:
       - test -e cfn/hello-eks.yaml || (echo "ERROR: cfn/hello-eks.yaml not found" && exit 2)
   build:
     commands:
-      # Lint the specific template (and you can keep the glob to lint all files too)
       - cfn-lint -t cfn/hello-eks.yaml
-      # Or lint all YAML templates in cfn/ (uncomment if you want)
-      # - cfn-lint -t "cfn/*.yaml"
-
 artifacts:
   files:
     - cfn/hello-eks.yaml
